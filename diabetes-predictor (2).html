@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GlucoSense AI — Early Diabetes Risk Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1f2d45;
+    --accent: #00d4aa;
+    --accent2: #0099ff;
+    --danger: #ff4d6d;
+    --warn: #f59e0b;
+    --text: #e8f0fe;
+    --muted: #7a8ba8;
+    --card-glow: 0 0 40px rgba(0,212,170,0.08);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow orbs */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.18;
+  }
+  .orb-1 { width: 600px; height: 600px; background: #00d4aa; top: -200px; right: -100px; }
+  .orb-2 { width: 500px; height: 500px; background: #0099ff; bottom: -100px; left: -150px; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    padding: 40px 0 20px;
+    text-align: center;
+    animation: fadeDown 0.7s ease both;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.3);
+    color: var(--accent); font-size: 12px; font-weight: 500;
+    padding: 6px 14px; border-radius: 100px; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-bottom: 20px;
+  }
+  .badge .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.8s infinite; }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 30%, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+  }
+  .subtitle { color: var(--muted); font-size: 1.05rem; font-weight: 300; max-width: 520px; margin: 0 auto 10px; line-height: 1.6; }
+
+  /* ALGORITHMS STRIP */
+  .algo-strip {
+    display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    margin: 24px 0 40px;
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+  .algo-tag {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 8px; font-size: 12px;
+    color: var(--muted); font-weight: 500;
+    transition: all 0.2s;
+  }
+  .algo-tag.best { border-color: rgba(0,212,170,0.4); color: var(--accent); background: rgba(0,212,170,0.08); }
+
+  /* MAIN CARD */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    box-shadow: var(--card-glow);
+    animation: fadeUp 0.8s 0.3s ease both;
+    margin-bottom: 24px;
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem; font-weight: 700;
+    color: var(--accent); text-transform: uppercase;
+    letter-spacing: 0.1em; margin-bottom: 28px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::before { content: ''; width: 20px; height: 2px; background: var(--accent); display: block; }
+
+  /* FORM GRID */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media(max-width: 600px) { .grid { grid-template-columns: 1fr; } .card { padding: 24px; } }
+
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  label {
+    font-size: 12px; font-weight: 500; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.07em;
+    display: flex; justify-content: space-between;
+  }
+  label span { color: var(--accent); font-family: 'Syne', sans-serif; font-size: 13px; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 4px;
+    background: var(--border); border-radius: 4px; outline: none;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    box-shadow: 0 0 10px rgba(0,212,170,0.5);
+    transition: transform 0.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .select-group { display: flex; gap: 8px; }
+  .sel-btn {
+    flex: 1; padding: 10px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .sel-btn.active { background: rgba(0,212,170,0.12); border-color: var(--accent); color: var(--accent); }
+
+  /* SUBMIT */
+  .btn-predict {
+    width: 100%; padding: 18px; margin-top: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 14px;
+    color: #000; font-family: 'Syne', sans-serif;
+    font-size: 1rem; font-weight: 700; letter-spacing: 0.05em;
+    cursor: pointer; transition: all 0.3s;
+    position: relative; overflow: hidden;
+  }
+  .btn-predict:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,212,170,0.35); }
+  .btn-predict:active { transform: translateY(0); }
+  .btn-predict .shimmer {
+    position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    animation: shimmer 2s infinite;
+  }
+
+  /* RESULT */
+  #result { display: none; animation: fadeUp 0.5s ease both; }
+
+  .risk-meter {
+    background: var(--surface2); border-radius: 14px;
+    padding: 28px; margin-bottom: 20px;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+  .risk-label {
+    font-family: 'Syne', sans-serif; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted); margin-bottom: 12px;
+  }
+  .risk-score {
+    font-family: 'Syne', sans-serif; font-size: 4rem;
+    font-weight: 800; line-height: 1;
+    margin-bottom: 8px;
+  }
+  .risk-tag {
+    display: inline-block; padding: 6px 20px; border-radius: 100px;
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 16px;
+  }
+
+  .bar-wrap { background: var(--border); border-radius: 100px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 100px; transition: width 1.2s cubic-bezier(0.34,1.56,0.64,1); width: 0; }
+
+  /* ALGO COMPARISON */
+  .algo-results { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media(max-width: 600px) { .algo-results { grid-template-columns: 1fr; } }
+
+  .algo-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .algo-card.winner { border-color: rgba(0,212,170,0.4); background: rgba(0,212,170,0.06); }
+  .algo-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); display: flex; justify-content: space-between; }
+  .algo-name .crown { color: var(--accent); font-size: 12px; }
+  .algo-acc { font-size: 11px; color: var(--muted); }
+  .algo-bar-wrap { background: var(--border); border-radius: 4px; height: 4px; margin-top: 4px; overflow: hidden; }
+  .algo-bar { height: 100%; border-radius: 4px; transition: width 1s 0.5s ease; width: 0; }
+
+  /* TIPS */
+  .tips { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 16px; }
+  @media(max-width: 600px) { .tips { grid-template-columns: 1fr; } }
+  .tip {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; font-size: 13px; color: var(--muted); line-height: 1.5;
+  }
+  .tip strong { display: block; color: var(--text); margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* WATERMARK */
+  .watermark {
+    position: fixed; bottom: 24px; right: 24px;
+    background: rgba(0,212,170,0.08);
+    border: 1px solid rgba(0,212,170,0.25);
+    border-radius: 100px;
+    padding: 8px 16px;
+    display: flex; align-items: center; gap: 8px;
+    z-index: 999; backdrop-filter: blur(10px);
+    animation: fadeUp 1s 0.5s ease both;
+    transition: all 0.3s;
+  }
+  .watermark:hover {
+    background: rgba(0,212,170,0.15);
+    border-color: rgba(0,212,170,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,212,170,0.2);
+  }
+  .watermark .wm-icon {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: #000;
+    font-family: 'Syne', sans-serif;
+  }
+  .watermark .wm-text {
+    font-size: 11px; font-weight: 500;
+    color: var(--accent); font-family: 'Syne', sans-serif;
+    letter-spacing: 0.04em;
+  }
+  .watermark .wm-sub {
+    font-size: 9px; color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    display: block; line-height: 1;
+    margin-top: 1px;
+  }
+
+  /* FOOTER */
+  footer {
+    text-align: center; padding: 40px 0 30px;
+    color: var(--muted); font-size: 12px; line-height: 1.8;
+    position: relative; z-index: 1;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  .footer-author {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px; padding: 6px 16px;
+    border: 1px solid rgba(0,212,170,0.2);
+    border-radius: 100px;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px; color: var(--accent);
+    letter-spacing: 0.06em;
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeDown { from { opacity:0; transform: translateY(-20px); } to { opacity:1; transform: none; } }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(24px); } to { opacity:1; transform: none; } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+  @keyframes shimmer { to { left: 150%; } }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- WATERMARK -->
+<div class="watermark">
+  <div class="wm-icon">CK</div>
+  <div>
+    <span class="wm-text">Made by Charan Kurri</span>
+    <span class="wm-sub">GlucoSense AI · Thesis Project</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <header>
+    <div class="badge"><span class="dot"></span> Thesis Research · AI/ML</div>
+    <h1>GlucoSense AI</h1>
+    <p class="subtitle">Early Diabetes Risk Prediction using comparative ML algorithms — Random Forest, SVM, KNN, Logistic Regression & Decision Tree.</p>
+  </header>
+
+  <!-- FLASK CONNECTION STATUS -->
+  <div id="api-status" style="
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    margin: 0 0 24px;
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 13px; font-family: 'DM Sans', sans-serif;
+    animation: fadeUp 0.6s 0.4s ease both;
+  ">
+    <span id="status-dot" style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;animation:pulse 1.2s infinite;flex-shrink:0"></span>
+    <span id="status-text" style="color:var(--muted)">⏳ Checking Flask server connection...</span>
+    <button onclick="checkAPI()" style="
+      margin-left:auto; padding:4px 12px; border-radius:8px;
+      border:1px solid var(--border); background:var(--surface2);
+      color:var(--muted); font-size:11px; cursor:pointer;
+      font-family:'DM Sans',sans-serif;
+    ">Retry</button>
+  </div>
+
+  <div class="algo-strip">
+    <div class="algo-tag best">✦ Random Forest</div>
+    <div class="algo-tag">SVM</div>
+    <div class="algo-tag">KNN</div>
+    <div class="algo-tag">Logistic Regression</div>
+    <div class="algo-tag">Decision Tree</div>
+  </div>
+
+  <!-- INPUT FORM -->
+  <div class="card">
+    <div class="card-title">Patient Health Metrics</div>
+    <div class="grid">
+
+      <div class="field">
+        <label>Age <span id="v-age">35</span></label>
+        <input type="range" id="age" min="18" max="90" value="35" oninput="upd('age','v-age','')">
+      </div>
+
+      <div class="field">
+        <label>BMI <span id="v-bmi">25.0</span></label>
+        <input type="range" id="bmi" min="15" max="55" value="25" step="0.1" oninput="upd('bmi','v-bmi','')">
+      </div>
+
+      <div class="field">
+        <label>Glucose Level (mg/dL) <span id="v-glucose">100</span></label>
+        <input type="range" id="glucose" min="50" max="300" value="100" oninput="upd('glucose','v-glucose','')">
+      </div>
+
+      <div class="field">
+        <label>Blood Pressure (mmHg) <span id="v-bp">80</span></label>
+        <input type="range" id="bp" min="40" max="130" value="80" oninput="upd('bp','v-bp','')">
+      </div>
+
+      <div class="field">
+        <label>Insulin Level (μU/mL) <span id="v-insulin">80</span></label>
+        <input type="range" id="insulin" min="0" max="900" value="80" oninput="upd('insulin','v-insulin','')">
+      </div>
+
+      <div class="field">
+        <label>Skin Thickness (mm) <span id="v-skin">20</span></label>
+        <input type="range" id="skin" min="0" max="100" value="20" oninput="upd('skin','v-skin','')">
+      </div>
+
+      <div class="field">
+        <label>Diabetes Pedigree Function <span id="v-dpf">0.47</span></label>
+        <input type="range" id="dpf" min="0.07" max="2.5" value="0.47" step="0.01" oninput="upd('dpf','v-dpf','')">
+      </div>
+
+      <div class="field">
+        <label>Pregnancies (if applicable) <span id="v-preg">1</span></label>
+        <input type="range" id="preg" min="0" max="17" value="1" oninput="upd('preg','v-preg','')">
+      </div>
+
+    </div>
+
+    <div class="field" style="margin-top:20px">
+      <label>Gender</label>
+      <div class="select-group">
+        <button class="sel-btn active" onclick="setGender(this,'female')">Female</button>
+        <button class="sel-btn" onclick="setGender(this,'male')">Male</button>
+      </div>
+    </div>
+
+    <button class="btn-predict" onclick="predict()">
+      <div class="shimmer"></div>
+      ⚡ Analyze Risk with ML Algorithms
+    </button>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result">
+
+    <div class="card">
+      <div class="card-title">Prediction Result</div>
+      <div class="risk-meter">
+        <div class="risk-label">Overall Diabetes Risk Score</div>
+        <div class="risk-score" id="score-num">—</div>
+        <div class="risk-tag" id="risk-tag">—</div>
+        <div class="bar-wrap"><div class="bar-fill" id="bar-fill"></div></div>
+      </div>
+
+      <div class="card-title" style="margin-top:24px">Algorithm Comparison</div>
+      <div class="algo-results" id="algo-results"></div>
+    </div>
+
+    <div class="card" id="tips-card">
+      <div class="card-title">Health Recommendations</div>
+      <div class="tips" id="tips-container"></div>
+    </div>
+
+  </div>
+
+  <footer>
+    <p>GlucoSense AI · Thesis Project: <em>Comparative Analysis of Machine Learning Algorithms for Early Disease Prediction</em></p>
+    <p style="margin-top:6px">⚠️ This tool is for educational purposes only. Consult a medical professional for clinical diagnosis.</p>
+    <div class="footer-author">✦ Made by Charan Kurri</div>
+  </footer>
+
+</div>
+
+<script>
+let gender = 'female';
+
+// Check Flask connection on page load
+async function checkAPI() {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  const box  = document.getElementById('api-status');
+
+  dot.style.background  = '#f59e0b';
+  dot.style.animation   = 'pulse 1.2s infinite';
+  text.style.color      = 'var(--muted)';
+  text.textContent      = '⏳ Checking Flask server connection...';
+
+  try {
+    const res = await fetch('http://127.0.0.1:5000/health', { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+    if (data.status === 'running') {
+      dot.style.background  = '#00d4aa';
+      dot.style.animation   = 'none';
+      text.style.color      = '#00d4aa';
+      text.textContent      = '✅ Flask server connected — Real ML predictions active (Random Forest 77.92%)';
+      box.style.borderColor = 'rgba(0,212,170,0.4)';
+      box.style.background  = 'rgba(0,212,170,0.06)';
+    }
+  } catch (e) {
+    dot.style.background  = '#ff4d6d';
+    dot.style.animation   = 'none';
+    text.style.color      = '#ff4d6d';
+    text.textContent      = '❌ Flask server not found — Start app.py in Jupyter first!';
+    box.style.borderColor = 'rgba(255,77,109,0.4)';
+    box.style.background  = 'rgba(255,77,109,0.06)';
+  }
+}
+
+// Auto-check on load
+window.addEventListener('load', checkAPI);
+
+function upd(id, vid, suffix) {
+  const v = document.getElementById(id).value;
+  document.getElementById(vid).textContent = parseFloat(v).toFixed(id==='bmi'||id==='dpf'?1:0) + suffix;
+}
+
+function setGender(btn, g) {
+  gender = g;
+  document.querySelectorAll('.sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function getVals() {
+  return {
+    age: +document.getElementById('age').value,
+    bmi: +document.getElementById('bmi').value,
+    glucose: +document.getElementById('glucose').value,
+    bp: +document.getElementById('bp').value,
+    insulin: +document.getElementById('insulin').value,
+    skin: +document.getElementById('skin').value,
+    dpf: +document.getElementById('dpf').value,
+    preg: +document.getElementById('preg').value,
+  };
+}
+
+function computeRisk(v) {
+  // Weighted risk model based on clinical thresholds (Pima dataset-inspired)
+  let score = 0;
+  // Glucose (most important)
+  if (v.glucose >= 200) score += 35;
+  else if (v.glucose >= 140) score += 22;
+  else if (v.glucose >= 126) score += 15;
+  else if (v.glucose >= 100) score += 6;
+
+  // BMI
+  if (v.bmi >= 40) score += 20;
+  else if (v.bmi >= 35) score += 14;
+  else if (v.bmi >= 30) score += 9;
+  else if (v.bmi >= 25) score += 4;
+
+  // Age
+  if (v.age >= 65) score += 10;
+  else if (v.age >= 45) score += 6;
+  else if (v.age >= 35) score += 3;
+
+  // DPF
+  if (v.dpf >= 1.5) score += 10;
+  else if (v.dpf >= 1.0) score += 6;
+  else if (v.dpf >= 0.5) score += 3;
+
+  // BP
+  if (v.bp >= 120) score += 6;
+  else if (v.bp >= 100) score += 3;
+
+  // Insulin
+  if (v.insulin > 300) score += 5;
+  else if (v.insulin > 150) score += 3;
+
+  // Pregnancies
+  if (v.preg >= 6) score += 6;
+  else if (v.preg >= 3) score += 3;
+
+  // Gender modifier (slight, based on research)
+  if (gender === 'male') score = Math.round(score * 0.93);
+
+  return Math.min(score, 98);
+}
+
+function getRiskLevel(score) {
+  if (score >= 65) return { label: 'High Risk', color: '#ff4d6d', bg: 'rgba(255,77,109,0.15)' };
+  if (score >= 35) return { label: 'Moderate Risk', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
+  return { label: 'Low Risk', color: '#00d4aa', bg: 'rgba(0,212,170,0.15)' };
+}
+
+function getAlgoResults(baseScore) {
+  // Simulate algorithm-specific predictions with realistic variance
+  const algos = [
+    { name: 'Random Forest', acc: 92.3, weight: 1.0, winner: true },
+    { name: 'SVM', acc: 89.1, weight: 0.97 },
+    { name: 'Logistic Regression', acc: 86.7, weight: 0.94 },
+    { name: 'KNN', acc: 84.5, weight: 0.91 },
+    { name: 'Decision Tree', acc: 81.2, weight: 0.88 },
+  ];
+  return algos.map(a => ({
+    ...a,
+    prediction: Math.min(98, Math.round(baseScore * a.weight + (Math.random()-0.5)*4))
+  }));
+}
+
+function getTips(score, v) {
+  const tips = [];
+  if (v.glucose >= 126) tips.push({ title: '🍬 Blood Sugar', text: 'Your glucose level is elevated. Reduce refined carbs, sugar, and sugary beverages. Monitor fasting blood glucose regularly.' });
+  else tips.push({ title: '🍬 Blood Sugar', text: 'Glucose level looks healthy. Maintain a balanced diet low in refined sugar to sustain this.' });
+
+  if (v.bmi >= 30) tips.push({ title: '⚖️ Weight Management', text: 'BMI indicates obesity. Aim for 150 min/week of moderate exercise. Even 5–7% weight loss significantly reduces diabetes risk.' });
+  else if (v.bmi >= 25) tips.push({ title: '⚖️ Weight Management', text: 'BMI is slightly elevated. Regular physical activity (30 min/day) and portion control can help maintain healthy weight.' });
+  else tips.push({ title: '⚖️ Weight Management', text: 'Your BMI is in a healthy range. Keep up regular exercise and a balanced diet to maintain it.' });
+
+  if (score >= 65) tips.push({ title: '🏥 Medical Advice', text: 'High risk detected. Please consult an endocrinologist or your GP. Consider HbA1c testing and a formal diabetes screening.' });
+  else if (score >= 35) tips.push({ title: '🩺 Preventive Care', text: 'Moderate risk. Schedule a routine checkup and discuss diabetes prevention strategies like the Diabetes Prevention Program with your doctor.' });
+  else tips.push({ title: '✅ Keep It Up', text: 'Low risk. Continue your healthy habits. Annual checkups are still recommended, especially with family history of diabetes.' });
+
+  return tips;
+}
+
+async function predict() {
+  const btn = document.querySelector('.btn-predict');
+  btn.innerHTML = '<div class="shimmer"></div> ⏳ Analyzing...';
+  btn.disabled = true;
+
+  const data = {
+    pregnancies:   +document.getElementById('preg').value,
+    glucose:       +document.getElementById('glucose').value,
+    bloodpressure: +document.getElementById('bp').value,
+    skinthickness: +document.getElementById('skin').value,
+    insulin:       +document.getElementById('insulin').value,
+    bmi:           +document.getElementById('bmi').value,
+    dpf:           +document.getElementById('dpf').value,
+    age:           +document.getElementById('age').value,
+  };
+
+  try {
+    const res = await fetch('http://127.0.0.1:5000/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    const score  = result.risk_score;
+
+    btn.innerHTML = '<div class="shimmer"></div> ⚡ Analyze Risk with ML Algorithms';
+    btn.disabled = false;
+
+    const resultEl = document.getElementById('result');
+    resultEl.style.display = 'block';
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const risk = getRiskLevel(score);
+    const scoreEl = document.getElementById('score-num');
+    scoreEl.style.color = risk.color;
+    scoreEl.textContent = score + '%';
+
+    const tagEl = document.getElementById('risk-tag');
+    tagEl.textContent = risk.label;
+    tagEl.style.background = risk.bg;
+    tagEl.style.color = risk.color;
+    tagEl.style.border = `1px solid ${risk.color}40`;
+
+    setTimeout(() => {
+      const bar = document.getElementById('bar-fill');
+      bar.style.width = score + '%';
+      bar.style.background = score >= 65
+        ? 'linear-gradient(90deg, #f59e0b, #ff4d6d)'
+        : score >= 35
+        ? 'linear-gradient(90deg, #00d4aa, #f59e0b)'
+        : 'linear-gradient(90deg, #0099ff, #00d4aa)';
+    }, 100);
+
+    // Real accuracy scores from your trained models
+    const algos = [
+      { name: 'Random Forest',       acc: 77.92, winner: true  },
+      { name: 'Decision Tree',       acc: 75.97, winner: false },
+      { name: 'KNN',                 acc: 75.32, winner: false },
+      { name: 'SVM',                 acc: 74.03, winner: false },
+      { name: 'Logistic Regression', acc: 70.78, winner: false },
+    ];
+
+    document.getElementById('algo-results').innerHTML = algos.map(a => `
+      <div class="algo-card ${a.winner ? 'winner' : ''}">
+        <div class="algo-name">
+          ${a.name}
+          ${a.winner ? '<span class="crown">★ Best</span>' : ''}
+        </div>
+        <div class="algo-acc">Accuracy: ${a.acc}%</div>
+        <div class="algo-bar-wrap">
+          <div class="algo-bar" id="abar-${a.name.replace(/\s/g,'')}"
+            style="background: ${a.winner ? 'var(--accent)' : 'var(--accent2)'}">
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    setTimeout(() => {
+      algos.forEach(a => {
+        const bar = document.getElementById('abar-' + a.name.replace(/\s/g,''));
+        if (bar) bar.style.width = a.acc + '%';
+      });
+    }, 200);
+
+    const v = data;
+    document.getElementById('tips-container').innerHTML = getTips(score, v)
+      .map(t => `<div class="tip"><strong>${t.title}</strong>${t.text}</div>`)
+      .join('');
+
+  } catch (err) {
+    btn.innerHTML = '<div class="shimmer"></div> ⚡ Analyze Risk with ML Algorithms';
+    btn.disabled = false;
+    alert('❌ Could not connect to Flask server.\nMake sure app.py is running in Jupyter!');
+  }
+}
+</script>
+</body>
+</html>
